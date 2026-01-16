@@ -1,0 +1,4 @@
+@import "tailwindcss";
+
+/* Custom thuộc tính, nếu chứa từ dark trong class -> màu đen */
+@custom-variant dark (&:where(.dark, .dark *));
