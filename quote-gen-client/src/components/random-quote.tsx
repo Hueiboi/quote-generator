@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 // import { quotes } from "../data/quotes";
 import type { Quote } from "../types/quote";
 import { CopyButton } from "./copy-btn";
@@ -6,21 +6,37 @@ import { CopyButton } from "./copy-btn";
 export default function RandomQuote() {
     const [quote, setQuote] = useState<Quote>({text: "Press the button below to get your quote", author: "System"});
     const [loading, setLoading] = useState<boolean>(false);
-
     const [isSpamming, setIsSpamming] = useState<boolean>(false);
     const [countDown, setCountDown] = useState(0);
 
+    const [selectedCategory, setSelectedCategory] = useState<'love' | 'health'| 'life' | 'career'>('life');
+
     const [isDark, setIsDark] = useState(false);
 
-    const getAIQuote = async () => {
+    // Sử dụng useCallback để memoize function và tránh re-render không cần thiết
+    const getAIQuote = useCallback(async () => {
+        // Lấy token từ localStorage (đã được lưu khi đăng nhập)
+        const token = localStorage.getItem('token');
+
+        // Kiểm tra token có tồn tại không
+        if (!token) {
+            setQuote({text: "Vui lòng đăng nhập để sử dụng tính năng này", author: "System"});
+            return;
+        }
+
         setLoading(true);
         try {
+            // Gửi request đến API generate quote với token trong header
             const res = await fetch("http://localhost:5000/api/generate", {
                 method: "POST",
-                headers: {"Content-Type": "application/json"},
-                body: JSON.stringify({category: "motivation"})
+                headers: {
+                    "Content-Type": "application/json", 
+                    "Authorization": `Bearer ${token}` // Format: "Bearer <token>"
+                },
+                body: JSON.stringify({category: selectedCategory})
             });
 
+            // Xử lý lỗi rate limit (429 - quá nhiều request)
             if (res.status === 429) {
                 const errorData = await res.json();
                 console.log(errorData);
@@ -29,6 +45,29 @@ export default function RandomQuote() {
                 return;
             }
 
+            // Xử lý lỗi 403 - Token không hợp lệ hoặc hết hạn
+            if (res.status === 403) {
+                const errorData = await res.json();
+                setQuote({text: errorData.message || "Token không hợp lệ. Vui lòng đăng nhập lại", author: "System"});
+                // Có thể tự động logout hoặc redirect về trang login
+                localStorage.removeItem('token');
+                localStorage.removeItem('refreshToken');
+                return;
+            }
+
+            // Xử lý lỗi 401 - Chưa đăng nhập
+            if (res.status === 401) {
+                const errorData = await res.json();
+                setQuote({text: errorData.message || "Vui lòng đăng nhập", author: "System"});
+                return;
+            }
+
+            // Nếu response không ok, throw error
+            if (!res.ok) {
+                throw new Error(`HTTP error! status: ${res.status}`);
+            }
+
+            // Parse dữ liệu từ response thành công
             const data = await res.json();
             setQuote(
                 {
@@ -39,14 +78,14 @@ export default function RandomQuote() {
         } 
         catch (error) {
             console.error("Error: ", error);
-            setQuote({text: "Cannot generate quote", author: "System error"});
+            setQuote({text: "Không thể tạo quote. Vui lòng thử lại sau", author: "System error"});
         }
         finally {
             setLoading(false);
         }
-    }
+    }, [selectedCategory]) // Dependency: chỉ chạy lại khi selectedCategory thay đổi
 
-    useEffect(() => {        if(isDark) {
+    useEffect(() => {if(isDark) {
             document.documentElement.classList.add("dark");
         } else {
             document.documentElement.classList.remove("dark");
@@ -62,6 +101,11 @@ export default function RandomQuote() {
             setIsSpamming(false);
         }
     },[countDown]);
+
+    // Tự động gọi getAIQuote khi selectedCategory thay đổi
+    useEffect(() => {
+        getAIQuote();
+    }, [getAIQuote]) // getAIQuote đã được memoize với useCallback, nên chỉ chạy lại khi selectedCategory thay đổi
 
     return ( <>
         <div className=" flex flex-col items-center dark:bg-slate-900 bg-white px-4 py-2 rounded-lg shadow-md w-200 min-h-70 transition-colors duration-300">
@@ -85,6 +129,19 @@ export default function RandomQuote() {
             </div>
 
             <div className="flex flex-row gap-4">
+                <div className="flex items-center gap-2">
+                    <select 
+                        value={selectedCategory}
+                        onChange={(e) => setSelectedCategory(e.target.value as 'love' | 'life' | 'health' | 'career')}
+                        className="p-2 border rounded dark:bg-zinc-200 bg-blue-500 text-white"
+                    >
+                        <option value="love">Love</option>
+                        <option value="life">Life</option>
+                        <option value="health">Health</option>
+                        <option value="career">Career</option>
+                    </select>
+                </div>
+
                 <button 
                     className={`bg-black text-white dark:bg-white dark:text-black px-4 py-2 rounded-md hover:cursor-pointer hover:bg-gray-800 ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
                     onClick={getAIQuote}
@@ -93,6 +150,7 @@ export default function RandomQuote() {
                     {loading ? "Generating..." : "Get AI Quote"}
                 </button>
                 <CopyButton textToCopy={`"${quote.text}" - ${quote.author}`} />
+
 
                 <div className="flex items-center gap-2">
                     <div className="relative inline-block w-11 h-5">

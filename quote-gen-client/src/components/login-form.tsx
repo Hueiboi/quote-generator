@@ -159,7 +159,15 @@ const Login: React.FC<LoginFormProps> = ({ onSwitchToSignup, onSwitchToForgot })
       const data = await response.json();
 
       // Kiểm tra dữ liệu user có hợp lệ không
-      if (data.user) {
+      if (data.user && data.accessToken) {
+        // Lưu accessToken vào localStorage để dùng cho các API request sau này
+        localStorage.setItem('token', data.accessToken);
+        
+        // Lưu refreshToken vào localStorage (dùng để refresh accessToken khi hết hạn)
+        if (data.refreshToken) {
+          localStorage.setItem('refreshToken', data.refreshToken);
+        }
+        
         // Gọi hàm login từ AuthContext để lưu thông tin user
         login({
           name: data.user.username || data.user.name || '',
@@ -167,7 +175,7 @@ const Login: React.FC<LoginFormProps> = ({ onSwitchToSignup, onSwitchToForgot })
         });
         console.log('Đăng nhập thành công');
       } else {
-        throw new Error('Dữ liệu người dùng không hợp lệ');
+        throw new Error('Dữ liệu người dùng hoặc token không hợp lệ');
       }
     } catch (error) {
       // Xử lý lỗi và hiển thị thông báo cho người dùng

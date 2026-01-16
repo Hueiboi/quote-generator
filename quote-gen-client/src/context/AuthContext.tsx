@@ -21,7 +21,10 @@ export const AuthProvider = ({children} : {children: React.ReactNode}) => {
 
     const logout = () => {
         setUser(null);
+        // Xóa tất cả thông tin liên quan đến authentication
         localStorage.removeItem("user");
+        localStorage.removeItem("token");
+        localStorage.removeItem("refreshToken");
     }
     return (
         <AuthContext.Provider value={{user, login, logout}}>
