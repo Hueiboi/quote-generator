@@ -85,7 +85,8 @@ export default function RandomQuote() {
         }
     }, [selectedCategory]) // Dependency: chỉ chạy lại khi selectedCategory thay đổi
 
-    useEffect(() => {if(isDark) {
+    useEffect(() => {
+        if(isDark) {
             document.documentElement.classList.add("dark");
         } else {
             document.documentElement.classList.remove("dark");
@@ -102,15 +103,10 @@ export default function RandomQuote() {
         }
     },[countDown]);
 
-    // Tự động gọi getAIQuote khi selectedCategory thay đổi
-    useEffect(() => {
-        getAIQuote();
-    }, [getAIQuote]) // getAIQuote đã được memoize với useCallback, nên chỉ chạy lại khi selectedCategory thay đổi
-
     return ( <>
         <div className=" flex flex-col items-center dark:bg-slate-900 bg-white px-4 py-2 rounded-lg shadow-md w-200 min-h-70 transition-colors duration-300">
             <div className="text-3xl font-bold text-center text-gray-800 dark:text-gray-100 mb-4">
-                <h1 className="mb-10">AI Quote <span className="text-green-700">Generator</span></h1>
+                <h1 className="mb-10">AI Quote <span className="text-green-700 dark:text-amber-700">Generator</span></h1>
             </div>
             
             <div className="random-quote mb-4 w-full">
@@ -133,7 +129,7 @@ export default function RandomQuote() {
                     <select 
                         value={selectedCategory}
                         onChange={(e) => setSelectedCategory(e.target.value as 'love' | 'life' | 'health' | 'career')}
-                        className="p-2 border rounded dark:bg-zinc-200 bg-blue-500 text-white"
+                        className="p-2 border rounded dark:bg-amber-700 dark:text-black bg-green-700 text-white"
                     >
                         <option value="love">Love</option>
                         <option value="life">Life</option>
@@ -145,7 +141,7 @@ export default function RandomQuote() {
                 <button 
                     className={`bg-black text-white dark:bg-white dark:text-black px-4 py-2 rounded-md hover:cursor-pointer hover:bg-gray-800 ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
                     onClick={getAIQuote}
-                    disabled={loading}
+                    disabled={loading || isSpamming}
                 >
                     {loading ? "Generating..." : "Get AI Quote"}
                 </button>
