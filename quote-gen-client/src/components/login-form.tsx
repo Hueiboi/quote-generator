@@ -179,7 +179,11 @@ const Login: React.FC<LoginFormProps> = ({ onSwitchToSignup, onSwitchToForgot })
       }
     } catch (error) {
       // Xử lý lỗi và hiển thị thông báo cho người dùng
-      const errorMessage = error instanceof Error ? error.message : 'Đăng nhập thất bại';
+      let errorMessage = error instanceof Error ? error.message : 'Đăng nhập thất bại';
+      // "Failed to fetch" = lỗi mạng: server chưa chạy, sai port, hoặc CORS
+      if (errorMessage === 'Failed to fetch' || (typeof errorMessage === 'string' && errorMessage.toLowerCase().includes('fetch'))) {
+        errorMessage = 'Không thể kết nối server. Vui lòng kiểm tra: (1) Server đã chạy chưa (chạy npm run dev trong thư mục quote-gen-server), (2) Port 5000 có bị chiếm không.';
+      }
       setError(errorMessage);
       console.error('Lỗi đăng nhập:', error);
     } finally {

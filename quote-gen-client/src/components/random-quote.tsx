@@ -1,15 +1,19 @@
 import { useEffect, useState, useCallback } from "react";
-// import { quotes } from "../data/quotes";
-import type { Quote } from "../types/quote";
+import type { BaseQuote, MockQuote } from "../types/quote";
+import { FavList } from "./fav-quote";
 import { CopyButton } from "./copy-btn";
+import { Heart } from "lucide-react";
 
 export default function RandomQuote() {
-    const [quote, setQuote] = useState<Quote>({text: "Press the button below to get your quote", author: "System"});
+    const [quote, setQuote] = useState<MockQuote>({quote: "Press the button below to get your quote", author: "System"});
     const [loading, setLoading] = useState<boolean>(false);
     const [isSpamming, setIsSpamming] = useState<boolean>(false);
     const [countDown, setCountDown] = useState(0);
 
     const [selectedCategory, setSelectedCategory] = useState<'love' | 'health'| 'life' | 'career'>('life');
+    
+    const [favs, setFavs] = useState<BaseQuote[]>([]);
+    const [isFav, setIsFav] = useState<boolean>()
 
     const [isDark, setIsDark] = useState(false);
 
@@ -20,7 +24,7 @@ export default function RandomQuote() {
 
         // Kiểm tra token có tồn tại không
         if (!token) {
-            setQuote({text: "Vui lòng đăng nhập để sử dụng tính năng này", author: "System"});
+            setQuote({quote: "Vui lòng đăng nhập để sử dụng tính năng này", author: "System"});
             return;
         }
 
@@ -48,7 +52,7 @@ export default function RandomQuote() {
             // Xử lý lỗi 403 - Token không hợp lệ hoặc hết hạn
             if (res.status === 403) {
                 const errorData = await res.json();
-                setQuote({text: errorData.message || "Token không hợp lệ. Vui lòng đăng nhập lại", author: "System"});
+                setQuote({quote: errorData.message || "Token không hợp lệ. Vui lòng đăng nhập lại", author: "System"});
                 // Có thể tự động logout hoặc redirect về trang login
                 localStorage.removeItem('token');
                 localStorage.removeItem('refreshToken');
@@ -58,7 +62,7 @@ export default function RandomQuote() {
             // Xử lý lỗi 401 - Chưa đăng nhập
             if (res.status === 401) {
                 const errorData = await res.json();
-                setQuote({text: errorData.message || "Vui lòng đăng nhập", author: "System"});
+                setQuote({quote: errorData.message || "Vui lòng đăng nhập", author: "System"});
                 return;
             }
 
@@ -71,14 +75,14 @@ export default function RandomQuote() {
             const data = await res.json();
             setQuote(
                 {
-                    text: data.content,
+                    quote: data.content,
                     author: data.author || "-"
                 }
             )
         } 
         catch (error) {
             console.error("Error: ", error);
-            setQuote({text: "Không thể tạo quote. Vui lòng thử lại sau", author: "System error"});
+            setQuote({quote: "Không thể tạo quote. Vui lòng thử lại sau", author: "System error"});
         }
         finally {
             setLoading(false);
@@ -103,10 +107,82 @@ export default function RandomQuote() {
         }
     },[countDown]);
 
+    const fetchFavs = async () => {
+        const token = localStorage.getItem('token');
+        if(!token) return;
+        try {
+            const res = await fetch("http://localhost:5000/api/favourites", {
+                headers: {"Authorization": `Bearer ${token}`}
+            });
+            const result = await res.json();
+            // Server trả về { message, data } — cần lấy mảng data
+            setFavs(Array.isArray(result.data) ? result.data : []);
+        } catch (error) {
+            console.error(error);
+        }
+    }
+
+    useEffect(() => {
+        fetchFavs();
+    }, [])
+
+    const handleAddFav = async () => {
+        const token = localStorage.getItem('token'); 
+        if(!token) return;
+        try {
+            const res = await fetch("http://localhost:5000/api/favourites", {
+                method: "POST",
+                headers: { 
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    quote: quote.quote,
+                    author: quote.author,
+                    category: selectedCategory
+                })
+            });
+
+            if(res.ok) {
+                const result = await res.json();
+                setIsFav(true);
+                // Dùng functional update để tránh stale closure và đảm bảo result.data tồn tại
+                setFavs(prev => result.data ? [result.data, ...prev] : prev);
+            }
+        } catch (error) {
+            console.error(error);
+        }
+    }
+
+    const handleDeleteFav = async (id: number) => {
+       const token = localStorage.getItem('token');
+
+       try {
+            const res = await fetch(`http://localhost:5000/api/favourites/${id}`, {
+                method: "DELETE",
+                headers: {"Authorization": `Bearer ${token}`}
+            });
+
+            if(res.ok) {
+                setFavs(prev => prev.filter(item => item.id !== id))
+            }
+       } catch (error) {
+            console.error(error);
+       }
+    }
+
+    useEffect(() => {
+        const exists = favs.some(f => f.quote === quote.quote);
+        setIsFav(exists);
+    }, [quote, favs]);
+
     return ( <>
         <div className=" flex flex-col items-center dark:bg-slate-900 bg-white px-4 py-2 rounded-lg shadow-md w-200 min-h-70 transition-colors duration-300">
             <div className="text-3xl font-bold text-center text-gray-800 dark:text-gray-100 mb-4">
                 <h1 className="mb-10">AI Quote <span className="text-green-700 dark:text-amber-700">Generator</span></h1>
+                <button onClick={handleAddFav} className="transition-all duration-300">
+                    <Heart className={isFav ? "text-red-500 fill-current" : "text-gray-400"} />
+                </button>
             </div>
             
             <div className="random-quote mb-4 w-full">
@@ -118,7 +194,7 @@ export default function RandomQuote() {
                     </div>
                 ) : (
                     <div className="dark:text-gray-100">
-                        <p className="min-h-[70px] text-lg text-center line-clamp-4">"{quote.text}"</p>
+                        <p className="min-h-[70px] text-lg text-center line-clamp-4">"{quote.quote}"</p>
                         <p className="text-xl text-right font-bold font-mono">- {quote.author} -</p>
                     </div>
                 )}
@@ -138,16 +214,18 @@ export default function RandomQuote() {
                     </select>
                 </div>
 
-                <button 
+                <div>
+                    <button 
                     className={`bg-black text-white dark:bg-white dark:text-black px-4 py-2 rounded-md hover:cursor-pointer hover:bg-gray-800 ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
                     onClick={getAIQuote}
                     disabled={loading || isSpamming}
-                >
+                    >
                     {loading ? "Generating..." : "Get AI Quote"}
-                </button>
-                <CopyButton textToCopy={`"${quote.text}" - ${quote.author}`} />
+                    </button>
+                    <CopyButton textToCopy={`"${quote.quote}" - ${quote.author}`} />
+                </div>
 
-
+                
                 <div className="flex items-center gap-2">
                     <div className="relative inline-block w-11 h-5">
                         <input 
@@ -169,6 +247,7 @@ export default function RandomQuote() {
                 </div>
             </div>
         </div>
+        <FavList favourites={favs} onDelete={handleDeleteFav} />
 
         {/*Box cảnh báo khi spamming*/}
         {isSpamming && (

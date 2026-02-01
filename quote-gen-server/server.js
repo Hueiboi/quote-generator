@@ -11,7 +11,8 @@ app.use(cors());
 app.use(express.json());
 app.use('/api', router);
 
-// Khởi động server
-app.listen(process.env.PORT, () => {
-    console.log(`Server is running on port ${process.env.PORT}`);
-} )
+// Khởi động server (mặc định port 5000 nếu .env không có PORT)
+const PORT = process.env.PORT || 5000;
+app.listen(PORT, () => {
+    console.log(`Server is running on port ${PORT}`);
+});
