@@ -1,5 +1,5 @@
 import express from "express";
-import { login, logout, register } from "../controllers/authController.js";
+import { login, logout, register, refreshToken, getUser } from "../controllers/authController.js";
 import { getFavQuotes, createFavQuotes, deleteFavQuotes } from "../controllers/favController.js";
 import { generateQuote } from "../controllers/quoteController.js";
 import { quoteLimiter } from "../middlewares/rateLimiter.js";
@@ -11,6 +11,8 @@ const router = express.Router();
 router.post('/auth/register', register);
 router.post('/auth/login', login);
 router.post('/auth/logout', verifyToken, logout);
+router.post('/auth/refresh-token', refreshToken);
+router.get('/auth/me', verifyToken, getUser);
 
 // Quote endpoint
 router.post('/generate', verifyToken, quoteLimiter ,generateQuote);

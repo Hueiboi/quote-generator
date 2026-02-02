@@ -114,7 +114,6 @@ const Login: React.FC<LoginFormProps> = ({ onSwitchToSignup, onSwitchToForgot })
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const { login } = useAuth();
-
   // Xử lý khi người dùng submit form đăng nhập
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -131,52 +130,9 @@ const Login: React.FC<LoginFormProps> = ({ onSwitchToSignup, onSwitchToForgot })
     setIsLoading(true);
 
     try {
-      // Gửi request đăng nhập đến server
-      const response = await fetch('http://localhost:5000/api/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json', 
-        },
-        body: JSON.stringify({ email, password }),
-      });
-
-      // Kiểm tra response trước khi parse JSON
-      // Nếu response không ok, có thể response không phải JSON hợp lệ
-      if (!response.ok) {
-        // Thử parse JSON để lấy thông báo lỗi từ server
-        let errorMessage = 'Đăng nhập thất bại';
-        try {
-          const errorData = await response.json();
-          errorMessage = errorData.message || errorMessage;
-        } catch {
-          // Nếu không parse được JSON, sử dụng message mặc định
-          errorMessage = `Lỗi ${response.status}: ${response.statusText}`;
-        }
-        throw new Error(errorMessage);
-      }
-
-      // Parse dữ liệu từ response
-      const data = await response.json();
-
-      // Kiểm tra dữ liệu user có hợp lệ không
-      if (data.user && data.accessToken) {
-        // Lưu accessToken vào localStorage để dùng cho các API request sau này
-        localStorage.setItem('token', data.accessToken);
-        
-        // Lưu refreshToken vào localStorage (dùng để refresh accessToken khi hết hạn)
-        if (data.refreshToken) {
-          localStorage.setItem('refreshToken', data.refreshToken);
-        }
-        
-        // Gọi hàm login từ AuthContext để lưu thông tin user
-        login({
-          name: data.user.username || data.user.name || '',
-          email: data.user.email,
-        });
-        console.log('Đăng nhập thành công');
-      } else {
-        throw new Error('Dữ liệu người dùng hoặc token không hợp lệ');
-      }
+      // Gọi hàm login từ AuthContext để xử lý toàn bộ luồng đăng nhập
+      await login(email, password);
+      console.log('Đăng nhập thành công');
     } catch (error) {
       // Xử lý lỗi và hiển thị thông báo cho người dùng
       let errorMessage = error instanceof Error ? error.message : 'Đăng nhập thất bại';

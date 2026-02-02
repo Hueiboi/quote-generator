@@ -2,7 +2,6 @@ import { User } from '../model/authModel.js'
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 
-// Xử lý đăng ký: tạo tài khoản mới với email, username và password đã hash
 export const register = async (req, res) => {
     const {username, email, password} = req.body
     
@@ -32,7 +31,6 @@ export const register = async (req, res) => {
     }
 }
 
-// Xử lý đăng nhập: kiểm tra email/password và trả về token
 export const login = async (req, res) => {
     const { email, password } = req.body
 
@@ -92,6 +90,55 @@ export const logout = async (req, res) => {
         res.status(200).json({message: "Đăng xuất thành công"})
     } catch (error) {
         console.error("Lỗi đăng xuất", error.message)
+        res.status(500).json({message: "Lỗi server"})
+    }
+}
+
+export const refreshToken = async (req, res) => {
+    const {refreshToken} = req.body
+    if(!refreshToken) {
+        return res.status(401).json({message: "Thiếu refresh token"})
+    }
+
+    try {
+        const decoded = jwt.verify(refreshToken, process.env.REFRESH_TOKEN_SECRET);
+        const existingUser = await User.findById(decoded.id)
+
+        if(!existingUser || existingUser.refreshToken !== refreshToken) {
+            return res.status(401).json({message: "Refresh token không hợp lệ"})
+        }
+
+        const newAccessToken = jwt.sign({id: existingUser.id, email: existingUser.email}, process.env.ACCESS_TOKEN_SECRET, {
+            expiresIn: '1h'
+        })
+
+        return res.status(200).json({
+            message: "Refresh token thành công",
+            accessToken: newAccessToken
+        })
+    } catch (error) {
+        return res.status(403).json({ message: "Phiên đăng nhập hết hạn, vui lòng login lại" });
+    }
+}
+
+
+export const getUser = async (req, res) => {
+    try {
+        const { userId } = req.user;
+        const user = await User.findById(userId);
+        if(!user) {
+            return res.status(404).json({message: "User not found"})
+        }
+        return res.status(200).json({
+            message: "Lấy user thành công",
+            user: {
+                id: user.id,
+                username: user.username,
+                email: user.email
+            }
+        })
+    } catch (error) {
+        console.error("Lỗi lấy user", error.message)
         res.status(500).json({message: "Lỗi server"})
     }
 }
